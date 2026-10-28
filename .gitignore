@@ -1,0 +1,42 @@
+# private handoff and reference material
+PORT_*
+
+# downloads, extracted builds, install state, reports
+*.zip
+*.part
+downloads/
+.stage-*/
+GothicAI-windows-x64-*/
+diagnostics-*.txt
+*.log
+Logs/
+
+# local settings, keys and sign-ins
+.env
+.env.*
+secrets.toml
+settings.toml
+chatgpt.json
+launcher.json
+*.key
+*.pem
+
+# game data, voice samples, saves
+*.sav
+*.vdf
+*.acf
+*.vdfs
+*.mod
+*.zen
+*.wav
+*.ogg
+*.mp3
+ou.bin
+gothic.dat
+
+# Python and editor leftovers
+.venv/
+__pycache__/
+*.pyc
+.DS_Store
+Thumbs.db
