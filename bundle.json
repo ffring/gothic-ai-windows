@@ -1,20 +1,20 @@
 {
   "name": "Gothic AI for Windows",
-  "version": "0.1.0",
-  "release": "https://github.com/ffring/gothic-ai-windows/releases/tag/v0.1.0",
+  "version": "0.1.1",
+  "release": "https://github.com/ffring/gothic-ai-windows/releases/tag/v0.1.1",
   "platform": "Windows 10/11 x64",
   "asset": {
-    "name": "GothicAI-windows-x64-r6-9cadf76.zip",
-    "url": "https://github.com/ffring/gothic-ai-windows/releases/download/v0.1.0/GothicAI-windows-x64-r6-9cadf76.zip",
-    "bytes": 52600273,
-    "sha256": "4c1e8b9c0a7a57b13084707848fda29a549c7d4034efece8040a285f56d7f8f7",
-    "root": "GothicAI-windows-x64-r6-9cadf76"
+    "name": "GothicAI-windows-x64-r6-9cadf76-winfix1.zip",
+    "url": "https://github.com/ffring/gothic-ai-windows/releases/download/v0.1.1/GothicAI-windows-x64-r6-9cadf76-winfix1.zip",
+    "bytes": 50772472,
+    "sha256": "18b3fd2af4296180b8aca0562699c2ffc50d4c6d08e316f829a8b2c3727583e9",
+    "root": "GothicAI-windows-x64-r6-9cadf76-winfix1"
   },
   "manifest": {
-    "name": "GothicAI-windows-x64-r6-9cadf76.manifest.json",
-    "url": "https://github.com/ffring/gothic-ai-windows/releases/download/v0.1.0/GothicAI-windows-x64-r6-9cadf76.manifest.json",
-    "bytes": 42984,
-    "sha256": "183b7f922c6411e587a1a02658bc0f5e1e1b97e7953773d7f39fe5dc5e20fd92"
+    "name": "GothicAI-windows-x64-r6-9cadf76-winfix1.manifest.json",
+    "url": "https://github.com/ffring/gothic-ai-windows/releases/download/v0.1.1/GothicAI-windows-x64-r6-9cadf76-winfix1.manifest.json",
+    "bytes": 44709,
+    "sha256": "1aefdc2d26c04221c6b03decf63774025199df499c9f88e29859291683f75b47"
   },
   "required": [
     "Setup-GothicAI.cmd",
@@ -33,7 +33,12 @@
     "asr-service/uv.lock",
     "tts-service/pyproject.toml",
     "tts-service/uv.lock",
-    "libs/chatgpt-auth/pyproject.toml"
+    "libs/chatgpt-auth/pyproject.toml",
+    "windows-crt-fix1.json",
+    "Prepare-GothicAI-Game.cmd",
+    "Check-Microphone.cmd",
+    "scripts/windows/game_profile.py",
+    "scripts/windows/microphone-check.ps1"
   ],
   "game": {
     "title": "Gothic II: Gold Edition (Night of the Raven), Russian",
@@ -43,7 +48,9 @@
     "repository": "https://github.com/ffring/GothicAI",
     "commit": "9cadf76b6886cefe48ce61580fe879e8441cb750",
     "build_run": "https://github.com/ffring/GothicAI/actions/runs/40607796695",
-    "original_release": "https://github.com/ffring/GothicAI/releases/tag/windows-r6.1-9cadf76"
+    "original_release": "https://github.com/ffring/GothicAI/releases/tag/windows-r6.1-9cadf76",
+    "fix_repository": "https://github.com/ffring/gothic-ai-windows",
+    "fix_commit": "108b4b2b2ccebf955ce765b4f53d66525e21a5b0"
   },
-  "verified": "Built and unit-tested natively on GitHub Actions windows-2022. Gameplay, graphics, microphone and synthesized speech not yet verified on a real Windows PC."
+  "verified": "Base was compiled and unit-tested on windows-2022. Windows CRT fixes were verified on a real Windows 11 x64 PC: full base import, gameplay, speech recognition and voiced NPC response confirmed by the user."
 }

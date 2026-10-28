@@ -174,10 +174,39 @@ Uses the preamble. The launcher looks for `uv` only on `PATH`, so the bundled on
 $uv = Join-Path $target 'tools\uv\uv.exe'
 $env:PATH = (Split-Path -Parent $uv) + ';' + $env:PATH
 $env:UV_PYTHON = '3.12'
+$env:UV_PYTHON_PREFERENCE = 'only-managed'
 $env:PYTHONUTF8 = '1'
+# Packaged Windows apps may redirect AppData. Store physical paths in venvs and settings,
+# so Explorer can launch the game after the installing agent has closed.
+$probe = & $uv run --no-project --python 3.12 python -c "from pathlib import Path; import json,sys; print(json.dumps({'target':str(Path(sys.argv[1]).resolve()),'python':str((Path(sys.base_prefix)/'python.exe').resolve())}))" $target
+if ($LASTEXITCODE -ne 0) { throw 'Cannot resolve the physical Python and installation paths' }
+$physical = $probe | ConvertFrom-Json
+$target = $physical.target
+$uv = Join-Path $target 'tools\uv\uv.exe'
+$env:PATH = (Split-Path -Parent $uv) + ';' + $env:PATH
+$env:UV_PYTHON = $physical.python
 foreach ($project in 'launcher\core', 'server', 'asr-service', 'tts-service') {
-    & $uv sync --locked --project (Join-Path $target $project)
+    $projectPath = Join-Path $target $project
+    $venv = Join-Path $projectPath '.venv'
+    $cfg = Join-Path $venv 'pyvenv.cfg'
+    if (Test-Path -LiteralPath $cfg) {
+        $oldHome = Get-Content -LiteralPath $cfg | Where-Object { $_ -match '^home\s*=' } | Select-Object -First 1
+        $oldHome = if ($oldHome) { ($oldHome -replace '^home\s*=\s*', '').Trim() } else { '' }
+        if ($oldHome -ne (Split-Path -Parent $physical.python)) {
+            Rename-Item -LiteralPath $venv -NewName ('.venv.before-path-fix-' + (Get-Date -Format yyyyMMdd-HHmmss))
+        }
+    }
+    & $uv sync --locked --python $physical.python --project $projectPath
     if ($LASTEXITCODE -ne 0) { throw "uv sync failed for $project (exit code $LASTEXITCODE)" }
+}
+& $uv run --locked --project (Join-Path $target 'launcher\core') gothic-launcher config set paths.repo $target
+if ($LASTEXITCODE -ne 0) { throw 'Cannot save the physical repository path' }
+# settings.toml is not a secret file. Resolve an already selected game without changing its contents.
+$gamePath = & $uv run --locked --project (Join-Path $target 'launcher\core') python -c "from pathlib import Path; import tomllib; p=Path.home()/'.config/gothic-ai/settings.toml'; d=tomllib.loads(p.read_text(encoding='utf-8')) if p.is_file() else {}; v=d.get('game',{}).get('dir'); print(str(Path(v).resolve()) if v else '')"
+if ($LASTEXITCODE -ne 0) { throw 'Cannot inspect the selected game path' }
+if ($gamePath -and (Test-Path -LiteralPath (Join-Path $gamePath 'Data'))) {
+    & $uv run --locked --project (Join-Path $target 'launcher\core') gothic-launcher config set game.dir $gamePath
+    if ($LASTEXITCODE -ne 0) { throw 'Cannot save the physical game path' }
 }
 & $uv run --locked --project (Join-Path $target 'launcher\core') gothic-launcher setup --check
 "setup --check exit code: $LASTEXITCODE"
@@ -211,17 +240,38 @@ Done when: the user says setup finished and step 5's `setup --check` now returns
 
 ### 7. Add a shortcut and launch
 
-Uses the preamble. Leaves an existing `Gothic AI.lnk` as it is.
+Uses the preamble. Resolve the physical installation and cache again, because variables do not carry between commands. Preserve an existing shortcut as a backup, then point the desktop shortcut at a local wrapper. The wrapper contains only filesystem paths, never credentials, and makes both the agent and Explorer use the same imported base cache.
 
 ```powershell
-$shortcut = Join-Path ([Environment]::GetFolderPath('Desktop')) 'Gothic AI.lnk'
-if (-not (Test-Path -LiteralPath $shortcut)) {
-    $link = (New-Object -ComObject WScript.Shell).CreateShortcut($shortcut)
-    $link.TargetPath = Join-Path $target 'Start-GothicAI.cmd'
-    $link.WorkingDirectory = $target
-    $link.Save()
+$uv = Join-Path $target 'tools\uv\uv.exe'
+$env:PYTHONUTF8 = '1'
+$paths = & $uv run --no-project --python 3.12 python -c "from pathlib import Path; import json,os,sys; print(json.dumps({'target':str(Path(sys.argv[1]).resolve()),'cache':str((Path(os.environ['LOCALAPPDATA'])/'gothic-ai'/'base').resolve())}))" $target
+if ($LASTEXITCODE -ne 0) { throw 'Cannot resolve desktop paths' }
+$paths = $paths | ConvertFrom-Json
+$target = $paths.target
+$start = Join-Path $target 'Start-GothicAI.cmd'
+$wrapper = Join-Path $target 'Start-Desktop-GothicAI.ps1'
+if (-not (Test-Path -LiteralPath $wrapper)) {
+    $lines = @(
+        ('$env:OPENGOTHIC_BASE_CACHE = ' + "'" + $paths.cache.Replace("'", "''") + "'"),
+        ('& ' + "'" + $start.Replace("'", "''") + "' @args"),
+        'exit $LASTEXITCODE'
+    )
+    [IO.File]::WriteAllLines($wrapper, $lines, (New-Object Text.UTF8Encoding $true))
 }
-Start-Process -FilePath (Join-Path $target 'Start-GothicAI.cmd') -WorkingDirectory $target
+$shortcut = Join-Path ([Environment]::GetFolderPath('Desktop')) 'Gothic AI.lnk'
+if (Test-Path -LiteralPath $shortcut) {
+    $backups = Join-Path $parent 'shortcut-backups'
+    New-Item -ItemType Directory -Path $backups -Force | Out-Null
+    Copy-Item -LiteralPath $shortcut -Destination (Join-Path $backups ('Gothic AI-' + (Get-Date -Format yyyyMMdd-HHmmss) + '.lnk'))
+}
+$link = (New-Object -ComObject WScript.Shell).CreateShortcut($shortcut)
+$link.TargetPath = Join-Path $env:WINDIR 'System32\WindowsPowerShell\v1.0\powershell.exe'
+$link.Arguments = '-NoLogo -NoProfile -ExecutionPolicy Bypass -File "' + $wrapper + '"'
+$link.WorkingDirectory = $target
+$link.IconLocation = (Join-Path $target 'OpenGothic\build\opengothic\Gothic2Notr.exe') + ',0'
+$link.Save()
+(New-Object -ComObject Shell.Application).ShellExecute($shortcut, '', '', 'open', 1)
 ```
 
 Tell the user: keep the black window open while playing; closing the game stops everything; to talk to an NPC, hold **T**, speak, then release T and the NPC answers with a voice; the first start takes longer while the game prepares its data; Codex and the browser are no longer needed for playing.

@@ -1,9 +1,12 @@
 # Runs the preparation blocks of AGENTS.md (preamble, step 4 download/unpack, step 5 prepare/check) exactly as
-# written, on Windows PowerShell 5.1 against the published v0.1.0 release. No game, Steam, sign-in, key or
+# written, on Windows PowerShell 5.1 against the published pinned release. No game, Steam, sign-in, key or
 # paid service: setup --check must report the missing user setup (exit code 2), not readiness.
 name: Prepare on Windows
 
 on:
+  push:
+    branches: [main]
+    paths: ['AGENTS.md', 'bundle.json', '.github/workflows/prepare-windows.yml']
   workflow_dispatch:
 
 permissions:
