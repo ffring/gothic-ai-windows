@@ -1,0 +1,88 @@
+# Runs the preparation blocks of AGENTS.md (preamble, step 4 download/unpack, step 5 prepare/check) exactly as
+# written, on Windows PowerShell 5.1 against the published v0.1.0 release. No game, Steam, sign-in, key or
+# paid service: setup --check must report the missing user setup (exit code 2), not readiness.
+name: Prepare on Windows
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  prepare:
+    name: AGENTS.md preparation on Windows PowerShell 5.1
+    runs-on: windows-2022
+    timeout-minutes: 15
+    defaults:
+      run:
+        shell: powershell
+    steps:
+      - name: Fetch this commit as the guide's local copy
+        run: |
+          "PowerShell $($PSVersionTable.PSVersion) $($PSVersionTable.PSEdition)"
+          if ($PSVersionTable.PSVersion.Major -ne 5) { throw 'expected Windows PowerShell 5.1' }
+          if (Test-Path -LiteralPath (Join-Path $env:LOCALAPPDATA 'GothicAI')) { throw 'GothicAI folder already exists on a fresh runner' }
+          $ProgressPreference = 'SilentlyContinue'
+          [Net.ServicePointManager]::SecurityProtocol = [Net.ServicePointManager]::SecurityProtocol -bor [Net.SecurityProtocolType]::Tls12
+          $work = Join-Path $env:LOCALAPPDATA 'GothicAI\agent'
+          New-Item -ItemType Directory -Force -Path $work | Out-Null
+          $zip = Join-Path $env:RUNNER_TEMP 'source.zip'
+          Invoke-WebRequest -UseBasicParsing -Uri "https://github.com/$env:GITHUB_REPOSITORY/archive/$env:GITHUB_SHA.zip" -OutFile $zip -TimeoutSec 120
+          Expand-Archive -LiteralPath $zip -DestinationPath $work
+          $root = Join-Path $work ('{0}-{1}' -f ($env:GITHUB_REPOSITORY -split '/')[1], $env:GITHUB_SHA)
+          if (-not (Test-Path -LiteralPath $root)) { throw "source ZIP has no root folder $root" }
+          Rename-Item -LiteralPath $root -NewName 'gothic-ai-windows-main'
+          Get-ChildItem -LiteralPath (Join-Path $work 'gothic-ai-windows-main') -File | Select-Object Name, Length
+
+      - name: Parse every PowerShell block, extract the three marked ones
+        run: |
+          $agents = Get-Content -Raw -Encoding UTF8 -LiteralPath (Join-Path $env:LOCALAPPDATA 'GothicAI\agent\gothic-ai-windows-main\AGENTS.md')
+          $fences = [regex]::Matches($agents, '(?ms)^```powershell\r?\n(.*?)^```')
+          if ($fences.Count -lt 3) { throw "AGENTS.md has only $($fences.Count) PowerShell blocks" }
+          foreach ($fence in $fences) {
+              $tokens = $null; $errors = $null
+              [System.Management.Automation.Language.Parser]::ParseInput($fence.Groups[1].Value, [ref]$tokens, [ref]$errors) | Out-Null
+              if ($errors.Count -gt 0) { throw "parse error: $($errors[0].Message) at line $($errors[0].Extent.StartLineNumber) of:`n$($fence.Groups[1].Value)" }
+          }
+          "parsed $($fences.Count) PowerShell blocks without errors"
+          foreach ($name in 'preamble', 'download', 'prepare') {
+              $marked = [regex]::Matches($agents, '(?ms)^<!-- ci:' + $name + ' -->\r?\n```powershell\r?\n(.*?)^```')
+              if ($marked.Count -ne 1) { throw "expected one block marked ci:$name, found $($marked.Count)" }
+              [IO.File]::WriteAllText((Join-Path $env:RUNNER_TEMP "ci-$name.ps1"), $marked[0].Groups[1].Value, (New-Object Text.UTF8Encoding $false))
+          }
+          Add-Content -LiteralPath $env:GITHUB_STEP_SUMMARY -Value "- AGENTS.md: $($fences.Count) PowerShell blocks parse on $($PSVersionTable.PSVersion)"
+
+      - name: Step 4, first run (download, verify, unpack)
+        run: |
+          . ([scriptblock]::Create([IO.File]::ReadAllText((Join-Path $env:RUNNER_TEMP 'ci-preamble.ps1'))))
+          . ([scriptblock]::Create([IO.File]::ReadAllText((Join-Path $env:RUNNER_TEMP 'ci-download.ps1'))))
+          if ($state -ne 'installed') { throw "expected state installed, got $state" }
+          Set-Content -LiteralPath (Join-Path $target 'ci-sentinel.txt') -Value "kept $env:GITHUB_RUN_ID" -Encoding ASCII
+          Add-Content -LiteralPath $env:GITHUB_STEP_SUMMARY -Value "- step 4 first run: $state, $target"
+
+      - name: Step 4, second run (reuse, keep extra files)
+        run: |
+          . ([scriptblock]::Create([IO.File]::ReadAllText((Join-Path $env:RUNNER_TEMP 'ci-preamble.ps1'))))
+          . ([scriptblock]::Create([IO.File]::ReadAllText((Join-Path $env:RUNNER_TEMP 'ci-download.ps1'))))
+          if ($state -ne 'reused') { throw "expected state reused, got $state" }
+          $sentinel = (Get-Content -Raw -LiteralPath (Join-Path $target 'ci-sentinel.txt')).Trim()
+          if ($sentinel -ne "kept $env:GITHUB_RUN_ID") { throw "sentinel changed: $sentinel" }
+          $leftovers = @(Get-ChildItem -LiteralPath $parent -Directory -Force | Where-Object { $_.Name -like '.stage-*' -or $_.Name -like '*.incomplete-*' })
+          if ($leftovers.Count -gt 0) { throw "unexpected folders: $(($leftovers | ForEach-Object { $_.Name }) -join ', ')" }
+          Add-Content -LiteralPath $env:GITHUB_STEP_SUMMARY -Value "- step 4 second run: $state, sentinel kept"
+
+      - name: Step 5 (uv sync of four projects, setup --check)
+        env:
+          UV_PYTHON_PREFERENCE: only-managed  # like a PC without Python: uv downloads 3.12 itself
+        run: |
+          $ErrorActionPreference = 'Continue'  # uv progress on stderr is not an error; the block checks exit codes
+          . ([scriptblock]::Create([IO.File]::ReadAllText((Join-Path $env:RUNNER_TEMP 'ci-preamble.ps1'))))
+          . ([scriptblock]::Create([IO.File]::ReadAllText((Join-Path $env:RUNNER_TEMP 'ci-prepare.ps1'))))
+          $check = $LASTEXITCODE
+          Add-Content -LiteralPath $env:GITHUB_STEP_SUMMARY -Value "- step 5: four uv sync --locked passed; setup --check exit code $check (2 expected: no game or user setup here)"
+          if ($check -ne 2) {
+              Write-Host "::error::setup --check returned $check; expected 2 for a PC without the game, key and sign-in"
+              exit 1
+          }
+          exit 0  # the runner would otherwise end the step with the expected exit code 2

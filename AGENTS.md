@@ -16,8 +16,9 @@ If your environment sandboxes network access or writes outside its workspace, re
 
 ## How to run the blocks
 
-Run every block in Windows PowerShell 5.1 (`powershell.exe`) or PowerShell 7, as one command. Variables do not carry between commands, so steps 4 to 7 start with this preamble; change `$repo` if you use an existing clone:
+Run every block in Windows PowerShell 5.1 (`powershell.exe`) or PowerShell 7, as one command. Variables do not carry between commands, so every block whose step says "Uses the preamble" starts with this preamble; change `$repo` if you use an existing clone:
 
+<!-- ci:preamble -->
 ```powershell
 $repo   = Join-Path $env:LOCALAPPDATA 'GothicAI\agent\gothic-ai-windows-main'
 $parent = Join-Path $env:LOCALAPPDATA 'GothicAI'
@@ -84,19 +85,21 @@ foreach ($library in $libraries) {
     $acf = Join-Path $library 'steamapps\appmanifest_39510.acf'
     if (-not (Test-Path -LiteralPath $acf)) { continue }
     $text = Get-Content -Raw -Encoding UTF8 -LiteralPath $acf
-    $dir = if ($text -match '"installdir"\s+"([^"]+)"') { Join-Path $library "steamapps\common\$($Matches[1])" }
+    if ($text -notmatch '"installdir"\s+"([^"]+)"') { "game: unreadable $acf (no installdir)"; continue }
+    $dir = Join-Path $library "steamapps\common\$($Matches[1])"
     $flags = if ($text -match '"StateFlags"\s+"(\d+)"') { $Matches[1] }
     "game: $dir; StateFlags: $flags; Data folder: $(Test-Path -LiteralPath (Join-Path $dir 'Data'))"
 }
 ```
 
 Done when: a `game:` line has `StateFlags: 4` (fully installed) and `Data folder: True`.
-Otherwise: no `steam:` path → [If Steam is missing](#if-steam-is-missing); Steam but no installed game → [If the game is missing](#if-the-game-is-missing). Ask the user for that action and continue with steps 4 and 5 meanwhile.
+Otherwise: no `steam:` path → [If Steam is missing](#if-steam-is-missing); Steam but no installed game, or an `unreadable` line → [If the game is missing](#if-the-game-is-missing). Ask the user for that action and continue with steps 4 and 5 meanwhile.
 
 ### 4. Download, verify and unpack the build
 
 Uses the preamble. Downloads the pinned ZIP and its manifest into `%LOCALAPPDATA%\GothicAI\downloads`, checks size and SHA256 against `bundle.json`, checks that every archive entry lies under the expected root folder, and unpacks into a new versioned folder. An existing folder for this version is checked and reused; an incomplete one is renamed aside, never deleted.
 
+<!-- ci:download -->
 ```powershell
 $ErrorActionPreference = 'Stop'
 $ProgressPreference = 'SilentlyContinue'  # Windows PowerShell downloads far faster without the progress bar
@@ -166,6 +169,7 @@ Otherwise: a network error or SHA256 mismatch → retry the block once, then rep
 
 Uses the preamble. The launcher looks for `uv` only on `PATH`, so the bundled one goes first. Do not add `2>&1` or `$ErrorActionPreference = 'Stop'` here: Windows PowerShell 5.1 turns uv's progress on stderr into errors. Judge by exit codes.
 
+<!-- ci:prepare -->
 ```powershell
 $uv = Join-Path $target 'tools\uv\uv.exe'
 $env:PATH = (Split-Path -Parent $uv) + ';' + $env:PATH
@@ -214,7 +218,7 @@ if (-not (Test-Path -LiteralPath $shortcut)) {
 Start-Process -FilePath (Join-Path $target 'Start-GothicAI.cmd') -WorkingDirectory $target
 ```
 
-Tell the user: keep the black window open while playing; closing the game stops everything; hold **T** to talk to an NPC; the first start takes longer while the game prepares its data; Codex and the browser are no longer needed for playing.
+Tell the user: keep the black window open while playing; closing the game stops everything; to talk to an NPC, hold **T**, speak, then release T and the NPC answers with a voice; the first start takes longer while the game prepares its data; Codex and the browser are no longer needed for playing.
 
 After about a minute:
 
@@ -224,7 +228,7 @@ Get-ChildItem -LiteralPath (Join-Path $env:LOCALAPPDATA 'GothicAI\Logs') -Direct
     Sort-Object Name | Select-Object -Last 1 | Get-ChildItem -File | Select-Object Name, Length
 ```
 
-Done when: a `Gothic2Notr` process runs. Unless you can see the screen yourself, ask the user one question: is the game on screen, and does an NPC answer with a voice while they hold T?
+Done when: a `Gothic2Notr` process runs. Unless you can see the screen yourself, ask the user one question: is the game on screen, and when they hold T, speak and release T, do they hear the NPC answer with a voice?
 
 ### 8. Report
 
