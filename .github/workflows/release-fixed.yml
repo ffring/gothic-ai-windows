@@ -1,0 +1,51 @@
+name: Publish fixed Windows bundle
+
+on:
+  push:
+    branches: [main, 'release/**']
+    paths:
+      - 'release/**'
+      - 'scripts/release/**'
+      - '.github/workflows/release-fixed.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: publish-windows-v0.1.1
+  cancel-in-progress: false
+
+jobs:
+  release:
+    runs-on: windows-2022
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Test mod isolation without changing source game files
+        run: python -m unittest discover -s scripts/release -p "test_*.py" -v
+      - name: Reproduce the tested Windows fixes from the verified public archive
+        run: python scripts/release/build.py
+      - name: Verify native tool starts without a CRT exception
+        shell: pwsh
+        run: |
+          $bundle = Get-Content dist/bundle.json -Raw | ConvertFrom-Json
+          Expand-Archive -LiteralPath (Join-Path dist $bundle.asset.name) -DestinationPath "$env:RUNNER_TEMP/native-smoke"
+          $native = Join-Path "$env:RUNNER_TEMP/native-smoke" "$($bundle.asset.root)/OpenGothic/ai_bridge/storygraph/build/storygraph.exe"
+          & $native
+          if ($LASTEXITCODE -ne 2) { throw "Expected usage exit 2, got $LASTEXITCODE" }
+          exit 0
+      - name: Publish versioned assets
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        shell: bash
+        run: |
+          if gh release view v0.1.1 >/dev/null 2>&1; then
+            echo "v0.1.1 already exists; preserving published assets"
+            exit 0
+          fi
+          gh release create v0.1.1 dist/*.zip dist/*.manifest.json dist/bundle.json dist/SHA256SUMS --target "$GITHUB_SHA" --title "Gothic AI Windows 0.1.1 — Windows CRT fixes" --notes-file RELEASE_NOTES.md --prerelease

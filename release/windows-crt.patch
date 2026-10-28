@@ -1,0 +1,53 @@
+--- a/OpenGothic/ai_bridge/storygraph/main.cpp
++++ b/OpenGothic/ai_bridge/storygraph/main.cpp
+@@ -216,7 +216,7 @@
+   }
+ 
+ static int run(int argc, char** argv) {
+-  std::setvbuf(stdout, nullptr, _IOLBF, 0);  // what was printed survives a crash
++  std::setvbuf(stdout, nullptr, _IONBF, 0);  // what was printed survives a crash
+   const char* datPath = nullptr;
+   const char* ouPath  = nullptr;
+   const char* json    = nullptr;
+--- a/OpenGothic/lib/ZenKit/src/archive/ArchiveAscii.cc
++++ b/OpenGothic/lib/ZenKit/src/archive/ArchiveAscii.cc
+@@ -428,7 +428,11 @@
+ 		std::time_t clk;
+ 		std::time(&clk);
+ 		auto* time = std::localtime(&clk);
++#ifdef _WIN32
++		strftime(date_buffer, 20, "%#d.%#m.%Y %H:%M:%S", time);
++#else
+ 		strftime(date_buffer, 20, "%-d.%-m.%Y %H:%M:%S", time);
++#endif
+ 
+ 		this->_m_write->write_line("ZenGin Archive");
+ 		this->_m_write->write_line("ver 1");
+--- a/OpenGothic/lib/ZenKit/src/archive/ArchiveBinary.cc
++++ b/OpenGothic/lib/ZenKit/src/archive/ArchiveBinary.cc
+@@ -244,7 +244,11 @@
+ 		std::time_t clk;
+ 		std::time(&clk);
+ 		auto* time = std::localtime(&clk);
++#ifdef _WIN32
++		strftime(date_buffer, 20, "%#d.%#m.%Y %H:%M:%S", time);
++#else
+ 		strftime(date_buffer, 20, "%-d.%-m.%Y %H:%M:%S", time);
++#endif
+ 
+ 		this->_m_write->write_line("ZenGin Archive");
+ 		this->_m_write->write_line("ver 1");
+--- a/OpenGothic/lib/ZenKit/src/archive/ArchiveBinsafe.cc
++++ b/OpenGothic/lib/ZenKit/src/archive/ArchiveBinsafe.cc
+@@ -409,7 +409,11 @@
+ 		std::time_t clk;
+ 		std::time(&clk);
+ 		auto* time = std::localtime(&clk);
++#ifdef _WIN32
++		strftime(date_buffer, 20, "%#d.%#m.%Y %H:%M:%S", time);
++#else
+ 		strftime(date_buffer, 20, "%-d.%-m.%Y %H:%M:%S", time);
++#endif
+ 
+ 		this->_m_write->write_line("ZenGin Archive");
+ 		this->_m_write->write_line("ver 1");

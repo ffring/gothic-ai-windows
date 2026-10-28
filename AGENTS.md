@@ -191,6 +191,12 @@ uv downloads Python 3.12 and the locked libraries once; repeats are fast. `setup
 | 2 | The game or the user's setup is missing (expected on a fresh PC) | Step 6 once the game is installed |
 | 1 or other | Failure | Read the printed reason; see [If something fails](#if-something-fails) |
 
+### 5a. Preserve an existing modded game
+
+If the Steam Data folder contains extra VDF archives (for example AB_* or Union.vdf), prepare the separate base-game profile before setup. Run `Prepare-GothicAI-Game.cmd "<game folder found in step 3>"` from the bundle with the exact discovered path. This uses hard links to the original base archives and directory junctions; it never copies game data or replaces mods. It sets only game.dir through the launcher. Existing matching profiles are reused. A compressed or missing original base archive is reported explicitly.
+
+The base profile is for Gothic AI. Keep the user's original modded installation and saves. If setup --check already passes, preserve credentials and do not ask the user to sign in again.
+
 ### 6. Let the user finish setup in their own console
 
 Only when step 5 returned 2 and step 3 found the installed game. Uses the preamble. This opens the bundled setup in a new visible console window that belongs to the user:
@@ -199,7 +205,7 @@ Only when step 5 returned 2 and step 3 found the installed game. Uses the preamb
 Start-Process -FilePath $env:ComSpec -ArgumentList '/k', 'Setup-GothicAI.cmd -SkipBuild' -WorkingDirectory $target
 ```
 
-Tell the user: in the new black window, answer its questions, paste the Inworld key when asked (the characters stay invisible) and press Enter, then sign in to ChatGPT in the browser that opens. The window prints «Готово» at the end and can then be closed. A user without an Inworld key gets one from Inworld (inworld.ai) themselves; accounts and plans are their decision. Setup finds the game in Steam by itself; if it shows a folder picker, the user picks the Gothic II folder from step 3 (the one with `Data`). If the window does not appear on the user's screen, ask them to open `%LOCALAPPDATA%\GothicAI\GothicAI-windows-x64-r6-9cadf76` in Explorer and double-click `Setup-GothicAI.cmd`.
+Tell the user: in the new black window, answer its questions, paste the Inworld key when asked (the characters stay invisible) and press Enter, then sign in to ChatGPT in the browser that opens. The window prints «Готово» at the end and can then be closed. A user without an Inworld key gets one from Inworld (inworld.ai) themselves; accounts and plans are their decision. Setup finds the game in Steam by itself; if it shows a folder picker, the user picks the Gothic II folder from step 3 (the one with `Data`). If the window does not appear on the user's screen, ask them to open `%LOCALAPPDATA%\GothicAI\GothicAI-windows-x64-r6-9cadf76-winfix1` in Explorer and double-click `Setup-GothicAI.cmd`.
 
 Done when: the user says setup finished and step 5's `setup --check` now returns 0.
 
@@ -238,7 +244,7 @@ Tell the user exactly one status, with the install folder and version:
 - **Files prepared** («Файлы подготовлены») — step 4 is done and `setup --check` returns 2. List each pending human action from steps 3 and 6.
 - **Failed** («Не получилось») — what failed, the exact step, and the next action.
 
-Do not describe gameplay, microphone or voice as verified by CI: the build was compiled and unit-tested on GitHub Actions only. Real-PC play is verified only by what you or the user saw.
+Do not describe gameplay, microphone or voice as verified by CI: the build was compiled and unit-tested on GitHub Actions only. Version 0.1.1 has been verified on one real Windows 11 x64 PC, including a user-confirmed voiced NPC reply. On another PC, verify the picture and voice again; CI alone does not prove gameplay.
 
 ## If Steam is missing
 
@@ -266,6 +272,8 @@ foreach ($key in $consent, (Join-Path $consent 'NonPackaged')) {
 ```
 
 If either says `Deny`, open the settings page with `Start-Process 'ms-settings:privacy-microphone'` and ask the user to allow microphone access, including for desktop apps.
+
+Also run `Check-Microphone.cmd` from the bundle to inspect endpoint mute and volume. Windows permission `Allow` does not imply the microphone is unmuted. The check is read-only and does not record audio. If muted, ask the user to unmute the default input in Windows Sound > Recording > Levels or with the laptop microphone key. Do not silently change recording/privacy settings.
 
 ## If something fails
 

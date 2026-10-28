@@ -1,0 +1,49 @@
+{
+  "name": "Gothic AI for Windows",
+  "version": "0.1.0",
+  "release": "https://github.com/ffring/gothic-ai-windows/releases/tag/v0.1.0",
+  "platform": "Windows 10/11 x64",
+  "asset": {
+    "name": "GothicAI-windows-x64-r6-9cadf76.zip",
+    "url": "https://github.com/ffring/gothic-ai-windows/releases/download/v0.1.0/GothicAI-windows-x64-r6-9cadf76.zip",
+    "bytes": 52600273,
+    "sha256": "4c1e8b9c0a7a57b13084707848fda29a549c7d4034efece8040a285f56d7f8f7",
+    "root": "GothicAI-windows-x64-r6-9cadf76"
+  },
+  "manifest": {
+    "name": "GothicAI-windows-x64-r6-9cadf76.manifest.json",
+    "url": "https://github.com/ffring/gothic-ai-windows/releases/download/v0.1.0/GothicAI-windows-x64-r6-9cadf76.manifest.json",
+    "bytes": 42984,
+    "sha256": "183b7f922c6411e587a1a02658bc0f5e1e1b97e7953773d7f39fe5dc5e20fd92"
+  },
+  "required": [
+    "Setup-GothicAI.cmd",
+    "Start-GothicAI.cmd",
+    "Diagnostics-GothicAI.cmd",
+    "START_HERE.ru.md",
+    "scripts/windows/common.ps1",
+    "tools/uv/uv.exe",
+    "OpenGothic/build/opengothic/Gothic2Notr.exe",
+    "OpenGothic/ai_bridge/storygraph/build/storygraph.exe",
+    "launcher/core/pyproject.toml",
+    "launcher/core/uv.lock",
+    "server/pyproject.toml",
+    "server/uv.lock",
+    "asr-service/pyproject.toml",
+    "asr-service/uv.lock",
+    "tts-service/pyproject.toml",
+    "tts-service/uv.lock",
+    "libs/chatgpt-auth/pyproject.toml"
+  ],
+  "game": {
+    "title": "Gothic II: Gold Edition (Night of the Raven), Russian",
+    "steam_app_id": 39510
+  },
+  "source": {
+    "repository": "https://github.com/ffring/GothicAI",
+    "commit": "9cadf76b6886cefe48ce61580fe879e8441cb750",
+    "build_run": "https://github.com/ffring/GothicAI/actions/runs/40607796695",
+    "original_release": "https://github.com/ffring/GothicAI/releases/tag/windows-r6.1-9cadf76"
+  },
+  "verified": "Built and unit-tested natively on GitHub Actions windows-2022. Gameplay, graphics, microphone and synthesized speech not yet verified on a real Windows PC."
+}

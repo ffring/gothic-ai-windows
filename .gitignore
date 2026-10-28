@@ -40,3 +40,6 @@ __pycache__/
 *.pyc
 .DS_Store
 Thumbs.db
+
+# Generated public release packages
+dist/
